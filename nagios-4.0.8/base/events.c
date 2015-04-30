@@ -1006,6 +1006,7 @@ static int should_run_event(timed_event *temp_event)
 }
 
 /* this is the main event handler loop */
+/*主的事件控制循环*/
 int event_execution_loop(void) {
 	timed_event *temp_event, *last_event = NULL;
 	time_t last_time = 0L;
@@ -1025,6 +1026,7 @@ int event_execution_loop(void) {
 		/* super-priority (hardcoded) events come first */
 
 		/* see if we should exit or restart (a signal was encountered) */
+        /*是否关闭和重启*/
 		if(sigshutdown == TRUE || sigrestart == TRUE)
 			break;
 
@@ -1040,6 +1042,7 @@ int event_execution_loop(void) {
 			compensate_for_system_time_change((unsigned long)last_time, (unsigned long)current_time);
 
 		/* get next scheduled event */
+        /*取出下一个预定的事件，取队头，不出队*/
 		current_event = temp_event = (timed_event *)squeue_peek(nagios_squeue);
 
 		/* if we don't have any events to handle, exit */
@@ -1057,6 +1060,7 @@ int event_execution_loop(void) {
 			update_program_status(FALSE);
 			}
 
+        //事件的运行时间
 		event_runtime = squeue_event_runtime(temp_event->sq_event);
 		if (temp_event != last_event) {
 			log_debug_info(DEBUGL_EVENTS, 1, "** Event Check Loop\n");
@@ -1099,14 +1103,17 @@ int event_execution_loop(void) {
 
 		/* 100 milliseconds allowance for firing off events early */
 		gettimeofday(&now, NULL);
+        /*时间还没到*/
 		if (tv_delta_msec(&now, event_runtime) > 100)
 			continue;
 
 		/* move on if we shouldn't run this event */
+        /*该事件是否应该运行*/
 		if(should_run_event(temp_event) == FALSE)
 			continue;
 
 		/* handle the event */
+        /*处理时间事件*/
 		handle_timed_event(temp_event);
 
 		/*
@@ -1114,9 +1121,11 @@ int event_execution_loop(void) {
 		 * we'll keep getting the same one over and over.
 		 * This also maintains sync with broker modules.
 		 */
+		/*事件运行完从队列移除*/
 		remove_event(nagios_squeue, temp_event);
 
 		/* reschedule the event if necessary */
+        /*事件是循环的，把下一次的事件加入队列*/
 		if(temp_event->recurring == TRUE)
 			reschedule_event(nagios_squeue, temp_event);
 
@@ -1133,6 +1142,7 @@ int event_execution_loop(void) {
 
 
 /* handles a timed event */
+/*处理时间事件*/
 int handle_timed_event(timed_event *event) {
 	host *temp_host = NULL;
 	service *temp_service = NULL;

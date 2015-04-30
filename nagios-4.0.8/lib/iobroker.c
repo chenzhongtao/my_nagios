@@ -125,7 +125,7 @@ struct iobroker_set *iobroker_create(void)
 	if (!iobs) {
 		goto error_out;
 	}
-
+    // 20000
 	iobs->max_fds = iobroker_max_usable_fds();
 	iobs->iobroker_fds = calloc(iobs->max_fds, sizeof(iobroker_fd *));
 	if (!iobs->iobroker_fds) {

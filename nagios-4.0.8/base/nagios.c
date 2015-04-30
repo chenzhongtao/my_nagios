@@ -315,8 +315,10 @@ int main(int argc, char **argv) {
 		exit(nagios_core_worker(worker_socket));
 	}
 
-	/* Initialize configuration variables */                             
+	/* Initialize configuration variables */ 
+    //初始化配置变量
 	init_main_cfg_vars(1);
+    //初始化共享的配置变量
 	init_shared_cfg_vars(1);
 
 	if(daemon_mode == FALSE) {
@@ -379,12 +381,13 @@ int main(int argc, char **argv) {
 	 * config file is last argument specified.
 	 * Make sure it uses an absolute path
 	 */
+	 //  /usr/local/nagios/etc/nagios.cfg
 	config_file = nspath_absolute(argv[optind], NULL);
 	if(config_file == NULL) {
 		printf("Error allocating memory.\n");
 		exit(ERROR);
 		}
-
+    // "/usr/local/nagios/etc"
 	config_file_dir = nspath_absolute_dirname(config_file, NULL);
 
 	/* 
@@ -541,13 +544,14 @@ int main(int argc, char **argv) {
 		if (strchr(argv[0], '/'))
 			nagios_binary_path = nspath_absolute(argv[0], NULL);
 		else
+           // /home/nagios-4.0.8/base/nagios
 			nagios_binary_path = strdup(argv[0]);
 
 		if (!nagios_binary_path) {
 			logit(NSLOG_RUNTIME_ERROR, TRUE, "Error: Unable to allocate memory for nagios_binary_path\n");
 			exit(EXIT_FAILURE);
 			}
-
+        //io代理  epoll
 		if (!(nagios_iobs = iobroker_create())) {
 			logit(NSLOG_RUNTIME_ERROR, TRUE, "Error: Failed to create IO broker set: %s\n",
 				  strerror(errno));
@@ -580,6 +584,7 @@ int main(int argc, char **argv) {
 			/* get program (re)start time and save as macro */
 			program_start = time(NULL);
 			my_free(mac->x[MACRO_PROCESSSTARTTIME]);
+            //程序启动时间
 			asprintf(&mac->x[MACRO_PROCESSSTARTTIME], "%lu", (unsigned long)program_start);
 
 			/* drop privileges */
@@ -590,13 +595,13 @@ int main(int argc, char **argv) {
 				cleanup();
 				exit(ERROR);
 				}
-
+            //判断权限
 			if (test_path_access(nagios_binary_path, X_OK)) {
 				logit(NSLOG_RUNTIME_ERROR, TRUE, "Error: failed to access() %s: %s\n", nagios_binary_path, strerror(errno));
 				logit(NSLOG_RUNTIME_ERROR, TRUE, "Error: Spawning workers will be impossible. Aborting.\n");
 				exit(EXIT_FAILURE);
 				}
-
+            //判断配置文件路径
 			if (test_configured_paths() == ERROR) {
 				/* error has already been logged */
 				exit(EXIT_FAILURE);
@@ -635,6 +640,7 @@ int main(int argc, char **argv) {
 #ifdef USE_EVENT_BROKER
 			/* initialize modules */
 			neb_init_modules();
+            //初始化回调链表
 			neb_init_callback_list();
 #endif
 			timing_point("NEB module API initialized\n");

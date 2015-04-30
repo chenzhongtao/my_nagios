@@ -1791,6 +1791,7 @@ int daemon_init(void) {
 #endif
 
 	/* change working directory. scuttle home if we're dumping core */
+    // /root
 	homedir = getenv("HOME");
 	if(daemon_dumps_core == TRUE && homedir != NULL)
 		chdir(homedir);
@@ -1810,6 +1811,7 @@ int daemon_init(void) {
 	open("/dev/null", O_WRONLY);
 	open("/dev/null", O_WRONLY);
 
+    // /usr/local/nagios/var/nagios.lock
 	lockfile = open(lock_file, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
 
 	if(lockfile < 0) {
@@ -1894,6 +1896,7 @@ int daemon_init(void) {
 
 #ifdef USE_EVENT_BROKER
 	/* send program data to broker */
+    // broker.c:45
 	broker_program_state(NEBTYPE_PROCESS_DAEMONIZE, NEBFLAG_NONE, NEBATTR_NONE, NULL);
 #endif
 

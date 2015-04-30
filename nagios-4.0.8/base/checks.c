@@ -158,6 +158,7 @@ int run_scheduled_service_check(service *svc, int check_options, double latency)
 
 
 /* forks a child process to run a service check, but does not wait for the service check result */
+/*起子进程去运行服务检查，不等待检查结果*/
 int run_async_service_check(service *svc, int check_options, double latency, int scheduled_check, int reschedule_check, int *time_is_valid, time_t *preferred_time) {
 	nagios_macros mac;
 	char *raw_command = NULL;

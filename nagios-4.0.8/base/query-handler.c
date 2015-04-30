@@ -377,6 +377,7 @@ static int qh_core(int sd, char *buf, unsigned int len)
 	return 404;
 }
 
+// /usr/local/nagios/var/rw/nagios.qh
 int qh_init(const char *path)
 {
 	int result, old_umask;
@@ -403,6 +404,7 @@ int qh_init(const char *path)
 	(void)fcntl(qh_listen_sock, F_SETFD, FD_CLOEXEC);
 
 	/* most likely overkill, but it's small, so... */
+    // ¹þÏ£±í½¨Á¢
 	if(!(qh_table = dkhash_create(1024))) {
 		logit(NSLOG_RUNTIME_ERROR, TRUE, "qh: Failed to create hash table\n");
 		close(qh_listen_sock);
