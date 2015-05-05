@@ -251,6 +251,7 @@ int mmap_fclose(mmapfile * temp_mmapfile) {
 	}
 
 /* gets one line of input from an mmap()'ed file */
+/*取文件的一行*/
 char *mmap_fgets(mmapfile * temp_mmapfile) {
 	char *buf = NULL;
 	unsigned long x = 0L;
@@ -313,7 +314,8 @@ char *mmap_fgets_multiline(mmapfile * temp_mmapfile) {
 	while(1) {
 
 		my_free(tempbuf);
-
+        
+        /*取文件的一行*/
 		if((tempbuf = mmap_fgets(temp_mmapfile)) == NULL)
 			break;
 
@@ -327,6 +329,7 @@ char *mmap_fgets_multiline(mmapfile * temp_mmapfile) {
 		else {
 			/* strip leading white space from continuation lines */
 			stripped = tempbuf;
+            // 去掉前面的空格字符
 			while(*stripped == ' ' || *stripped == '\t')
 				stripped++;
 			len = strlen(stripped);
@@ -351,13 +354,14 @@ char *mmap_fgets_multiline(mmapfile * temp_mmapfile) {
 		else
 			end = len - 1;
 
+        //如果最后有两个 \ 结束读入
 		/* two backslashes found. unescape first backslash first and break */
 		if(end >= 1 && buf[end - 1] == '\\' && buf[end] == '\\') {
 			buf[end] = '\n';
 			buf[end + 1] = '\x0';
 			break;
 			}
-
+        //如果最后只有两个 \ 继续读下一行 "\" 表示下一行也是这一行的内容
 		/* one backslash found. continue reading the next line */
 		else if(end > 0 && buf[end] == '\\')
 			buf[end] = '\x0';

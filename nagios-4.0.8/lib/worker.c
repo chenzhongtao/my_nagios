@@ -724,6 +724,7 @@ int set_socket_options(int sd, int bufsize)
 	return worker_set_sockopts(sd, bufsize);
 }
 
+//worker工作主流程
 void enter_worker(int sd, int (*cb)(child_process*))
 {
 	/* created with socketpair(), usually */

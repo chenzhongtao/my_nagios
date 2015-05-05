@@ -456,7 +456,7 @@ int open_debug_log(void) {
 	/* don't do anything if we're not debugging */
 	if(debug_level == DEBUGL_NONE)
 		return OK;
-
+    // /usr/local/nagios/var/nagios.debug
 	if((debug_file_fp = fopen(debug_file, "a+")) == NULL)
 		return ERROR;
 

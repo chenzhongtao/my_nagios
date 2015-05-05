@@ -758,7 +758,7 @@ int init_event_queue(void)
 
 	size = num_objects.hosts + num_objects.services;
 	if(size < 4096)
-		size = 4096;
+		size = 4096; // 最少4096，避免不必要的增长
 
 	nagios_squeue = squeue_create(size);
 	return 0;
@@ -1038,11 +1038,12 @@ int event_execution_loop(void) {
 			compensate_for_system_time_change((unsigned long)last_time, (unsigned long)current_time);
 
 		/* else if the time advanced over the specified threshold, try and compensate... */
-		else if((current_time - last_time) >= time_change_threshold)
+        // time_change_threshold = 900
+        else if((current_time - last_time) >= time_change_threshold)
 			compensate_for_system_time_change((unsigned long)last_time, (unsigned long)current_time);
 
 		/* get next scheduled event */
-        /*取出下一个预定的事件，取队头，不出队*/
+        /*取出下一个预定的事件，取队头，不出队, peek 看一眼*/
 		current_event = temp_event = (timed_event *)squeue_peek(nagios_squeue);
 
 		/* if we don't have any events to handle, exit */
@@ -1057,6 +1058,8 @@ int event_execution_loop(void) {
 		/* update status information occassionally - NagVis watches the NDOUtils DB to see if Nagios is alive */
 		if((unsigned long)(current_time - last_status_update) > 5) {
 			last_status_update = current_time;
+            // common/statusdata.c:96
+            // 跟新worker状态
 			update_program_status(FALSE);
 			}
 

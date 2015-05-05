@@ -45,6 +45,7 @@ int xrddefault_initialize_retention_data(const char *cfgfile) {
 	nagios_macros *mac;
 
 	/* initialize locations if necessary  */
+    // /usr/local/nagios/var/retention.dat
 	if(retention_file == NULL)
 		retention_file = (char *)strdup(DEFAULT_RETENTION_FILE);
 

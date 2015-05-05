@@ -253,7 +253,8 @@ int drop_privileges( char *user, char *group) {
 	int result = PW_OK;
 
 	/* only drop privileges if we're running as root, so we don't
-		interfere with being debugged while running as some random user */
+		interfere with being debugged while running as some random user 
+		如果当前是root用户才降低权限*/
 	if( getuid() != 0) {
 		return PW_OK;
 	}
@@ -262,7 +263,9 @@ int drop_privileges( char *user, char *group) {
 	if( NULL != group) {
 
 		/* see if this is a group name */
+        // strspn 计算字符串group中连续有几个字符都属于字符串"0123456789"
 		if( strspn( group, "0123456789") < strlen( group)) {
+          //不是ID数字
 			grp = ( struct group *)getgrnam( group);
 			if( NULL != grp) {
 				gid = ( gid_t)(grp->gr_gid);

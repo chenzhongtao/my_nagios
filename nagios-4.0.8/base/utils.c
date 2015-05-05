@@ -1580,7 +1580,8 @@ void setup_sighandler(void) {
 	/* reset the shutdown flag */
 	sigshutdown = FALSE;
 
-	/* remove buffering from stderr, stdin, and stdout */
+	/* remove buffering from stderr, stdin, and stdout 
+       标准输入输出错误不设置缓存*/
 	setbuf(stdin, (char *)NULL);
 	setbuf(stdout, (char *)NULL);
 	setbuf(stderr, (char *)NULL);
@@ -1793,11 +1794,13 @@ int daemon_init(void) {
 	/* change working directory. scuttle home if we're dumping core */
     // /root
 	homedir = getenv("HOME");
+       // daemon_dumps_core = 0
 	if(daemon_dumps_core == TRUE && homedir != NULL)
 		chdir(homedir);
 	else
 		chdir("/");
 
+    // 组和其他用户没有写权限
 	umask(S_IWGRP | S_IWOTH);
 
 	/* close existing stdin, stdout, stderr */
@@ -1877,6 +1880,7 @@ int daemon_init(void) {
 	/* prevent daemon from dumping a core file... */
 #ifdef RLIMIT_CORE
 	if(daemon_dumps_core == FALSE) {
+        // rlim_cur = 18446744073709551615, rlim_max = 18446744073709551615
 		getrlimit(RLIMIT_CORE, &limit);
 		limit.rlim_cur = 0;
 		setrlimit(RLIMIT_CORE, &limit);
@@ -1897,6 +1901,7 @@ int daemon_init(void) {
 #ifdef USE_EVENT_BROKER
 	/* send program data to broker */
     // broker.c:45
+    // NEB nagios event broker
 	broker_program_state(NEBTYPE_PROCESS_DAEMONIZE, NEBFLAG_NONE, NEBATTR_NONE, NULL);
 #endif
 
@@ -1917,15 +1922,19 @@ int drop_privileges(char *user, char *group) {
 	struct passwd *pw = NULL;
 	int result = OK;
 
-	/* only drop privileges if we're running as root, so we don't interfere with being debugged while running as some random user */
-	if(getuid() != 0)
+	/* only drop privileges if we're running as root, so we don't interfere with being debugged while running as some random user 
+       如果当前是root用户才降低权限*/
+
+    if(getuid() != 0)
 		return OK;
 
 	/* set effective group ID */
 	if(group != NULL) {
 
 		/* see if this is a group name */
+        // strspn 计算字符串group中连续有几个字符都属于字符串"0123456789"
 		if(strspn(group, "0123456789") < strlen(group)) {
+            //不是ID数字
 			grp = (struct group *)getgrnam(group);
 			if(grp != NULL)
 				gid = (gid_t)(grp->gr_gid);
@@ -1955,7 +1964,8 @@ int drop_privileges(char *user, char *group) {
 			uid = (uid_t)atoi(user);
 		}
 
-	/* now that we know what to change to, we fix log file permissions */
+	/* now that we know what to change to, we fix log file permissions 
+     修改日志文件的所有者*/
 	fix_log_file_owner(uid, gid);
 
 	/* set effective group ID if other than current EGID */
@@ -1970,6 +1980,8 @@ int drop_privileges(char *user, char *group) {
 	if(uid != geteuid()) {
 
 		/* initialize supplementary groups */
+        /*因为每个用户可以属于多个组，该函数将user所属的所有组还有
+         group都添加到当前运行进程的有效组，即将这些要添加的组作为添加组。*/
 		if(initgroups(user, gid) == -1) {
 			if(errno == EPERM)
 				logit(NSLOG_RUNTIME_WARNING, TRUE, "Warning: Unable to change supplementary groups using initgroups() -- I hope you know what you're doing");

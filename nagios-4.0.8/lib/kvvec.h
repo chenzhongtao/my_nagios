@@ -16,10 +16,10 @@
  * One of the two major components of the kvvec api
  */
 struct key_value {
-	char *key;     /**< The key */
-	char *value;   /**< The value */
-	int key_len;   /**< Length of key */
-	int value_len; /**< Length of value */
+	char *key;     /**< The key */             // "name"
+	char *value;   /**< The value */           //"Core Worker 13317"
+	int key_len;   /**< Length of key */       //key_len = 4
+	int value_len; /**< Length of value */     //value_len = 17
 };
 
 /**
@@ -40,9 +40,9 @@ struct kvvec_buf {
  */
 struct kvvec {
 	struct key_value *kv; /**< The key/value array */
-	int kv_alloc;         /**< Allocated size of key/value array */
-	int kv_pairs;         /**< Number of key/value pairs */
-	int kvv_sorted;        /**< Determines if this kvvec has been sorted */
+	int kv_alloc;         /**< Allocated size of key/value array */  //2// 2
+	int kv_pairs;         /**< Number of key/value pairs */          // 2
+	int kvv_sorted;        /**< Determines if this kvvec has been sorted */  // 0
 };
 
 /** Portable initializer for stack-allocated key/value vectors */

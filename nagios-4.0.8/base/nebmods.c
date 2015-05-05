@@ -547,7 +547,7 @@ int neb_make_callbacks(int callback_type, void *data) {
 int neb_init_callback_list(void) {
 	register int x = 0;
 
-	/* allocate memory for the callback list */
+	/* allocate memory for the callback list 26¸ö*/
 	neb_callback_list = (nebcallback **)malloc(NEBCALLBACK_NUMITEMS * sizeof(nebcallback *));
 	if(neb_callback_list == NULL)
 		return ERROR;

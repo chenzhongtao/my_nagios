@@ -37,7 +37,7 @@
 /************************* EVENT FUNCTIONS ************************/
 /******************************************************************/
 
-
+// type=104, flags=0, attr=0, timestamp=0x0
 /* sends program data (starts, restarts, stops, etc.) to broker */
 void broker_program_state(int type, int flags, int attr, struct timeval *timestamp) {
 	nebstruct_process_data ds;
@@ -49,6 +49,7 @@ void broker_program_state(int type, int flags, int attr, struct timeval *timesta
 	ds.type = type;
 	ds.flags = flags;
 	ds.attr = attr;
+    //当前时间
 	ds.timestamp = get_broker_timestamp(timestamp);
 
 	/* make callbacks */

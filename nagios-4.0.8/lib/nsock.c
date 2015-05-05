@@ -38,16 +38,28 @@ int nsock_unix(const char *path, unsigned int flags)
 		return NSOCK_EINVAL;
 
 	if(flags & NSOCK_TCP)
+        // 使用字节流套接字 unix域不使用TCP，只是类似
 		mode = SOCK_STREAM;
 	else if(flags & NSOCK_UDP)
 		mode = SOCK_DGRAM;
 	else
 		return NSOCK_EINVAL;
-
+    // AF_UNIX 现在叫 AF_LOCAL
 	if((sock = socket(AF_UNIX, mode, 0)) < 0) {
 		return NSOCK_ESOCKET;
 	}
+    /*
+    struct sockaddr {
+    unsigned  short  sa_family;     //address family, AF_xxx 
+    char  sa_data[14];              //14 bytes of protocol address
+    };
 
+    struct sockaddr_un {
+       sa_family_t sun_family;               // AF_UNIX
+       char        sun_path[UNIX_PATH_MAX];  //  pathname 
+    };
+    */
+    
 	/* set up the sockaddr_un struct and the socklen_t */
 	sa = (struct sockaddr *)&saun;
 	memset(&saun, 0, sizeof(saun));
@@ -57,11 +69,13 @@ int nsock_unix(const char *path, unsigned int flags)
 	slen += offsetof(struct sockaddr_un, sun_path);
 
 	/* unlink if we're supposed to, but not if we're connecting */
+    // 服务端 非 客户端，删除文件，bind会新建一个
 	if(flags & NSOCK_UNLINK && !(flags & NSOCK_CONNECT)) {
 		if(unlink(path) < 0 && errno != ENOENT)
 			return NSOCK_EUNLINK;
 	}
 
+    // 这里的connect ，客户端用connect，服务端使用bind,会新建一个sock文件 
 	if(flags & NSOCK_CONNECT) {
 		if(connect(sock, sa, slen) < 0) {
 			close(sock);
@@ -81,6 +95,7 @@ int nsock_unix(const char *path, unsigned int flags)
 	if(flags & NSOCK_UDP)
 		return sock;
 
+    // 最大监听3个
 	if(listen(sock, 3) < 0) {
 		close(sock);
 		return NSOCK_ELISTEN;

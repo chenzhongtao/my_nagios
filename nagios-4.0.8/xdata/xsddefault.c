@@ -84,6 +84,7 @@ int xsddefault_initialize_status_data(const char *cfgfile) {
 		strip(mac->x[MACRO_STATUSDATAFILE]);
 
 	/* delete the old status log (it might not exist) */
+    // É¾³ý¾ÉÊý¾Ý
 	if(status_file)
 		unlink(status_file);
 

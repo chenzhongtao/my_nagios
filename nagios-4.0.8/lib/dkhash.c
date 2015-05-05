@@ -14,12 +14,12 @@ typedef struct dkhash_bucket {
 } dkhash_bucket;
 
 struct dkhash_table {
-	dkhash_bucket **buckets;
-	unsigned int num_buckets;
-	unsigned int added, removed;
-	unsigned int entries;
-	unsigned int max_entries;
-	unsigned int collisions;
+	dkhash_bucket **buckets;  // 1024 个dkhash_bucket *
+	unsigned int num_buckets; // 桶数目，这里为1024
+	unsigned int added, removed; // 添加和移除的次数
+	unsigned int entries;      // 当前个数
+	unsigned int max_entries; // 最大个数
+	unsigned int collisions; // 冲突个数
 };
 
 /* struct data access functions */
@@ -70,6 +70,7 @@ static inline unsigned int hash(register const unsigned char *k)
 	return h;
 }
 
+//查找哈希位置
 static inline unsigned int dkhash_slot(dkhash_table *t, const char *k1, const char *k2)
 {
 	if(k2)
@@ -108,8 +109,10 @@ int dkhash_insert(dkhash_table *t, const char *k1, const char *k2, void *data)
 
 	if (!t || !k1)
 		return DKHASH_EINVAL;
-
+    
+    //查找哈希位置
 	slot = dkhash_slot(t, k1, k2);
+    // 哈希表中查找是否已经存在该项
 	bkt = k2 ? dkhash_get_bucket2(t, k1, k2, slot) : dkhash_get_bucket(t, k1, slot);
 
 	if (bkt)
@@ -119,6 +122,7 @@ int dkhash_insert(dkhash_table *t, const char *k1, const char *k2, void *data)
 		return DKHASH_ENOMEM;
 
 	if (t->buckets[slot])
+        // 冲突，有多少个key的哈希值一样
 		t->collisions++; /* "soft" collision */
 
 	t->added++;

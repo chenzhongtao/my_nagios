@@ -41,12 +41,12 @@ typedef struct {
 
 
 struct iobroker_set {
-	iobroker_fd **iobroker_fds;
-	int max_fds; /* max number of sockets we can accept */
-	int num_fds; /* number of sockets we're currently brokering for */
+	iobroker_fd **iobroker_fds; /*iobroker_fd * 数组，数组长度20000 */
+	int max_fds; /* max number of sockets we can accept 20000 */
+	int num_fds; /* number of sockets we're currently brokering for 有多少个fd被代理*/
 #ifdef IOBROKER_USES_EPOLL
-	int epfd;
-	struct epoll_event *ep_events;
+	int epfd;  //epool fd
+	struct epoll_event *ep_events;  //20000个epoll_event
 #elif !defined(IOBROKER_USES_SELECT)
 	struct pollfd *pfd;
 #endif
@@ -136,16 +136,20 @@ struct iobroker_set *iobroker_create(void)
 	{
 		int flags;
 
+        // epoll_wait 输出的数据
 		iobs->ep_events = calloc(iobs->max_fds, sizeof(struct epoll_event));
 		if (!iobs->ep_events) {
 			goto error_out;
 		}
-
+        //创建一个epoll的句柄，size用来告诉内核这个监听的数目一共有多大。
+        //这个参数不同于select()中的第一个参数，给出最大监听的fd+1的值。
+        //需要注意的是，当创建好epoll句柄后，它就是会占用一个fd值
 		iobs->epfd = epoll_create(iobs->max_fds);
 		if (iobs->epfd < 0) {
 			goto error_out;
 		}
 
+        //添加fd属性，FD_CLOEXEC
 		flags = fcntl(iobs->epfd, F_GETFD);
 		flags |= FD_CLOEXEC;
 		fcntl(iobs->epfd, F_SETFD, flags);
@@ -278,7 +282,7 @@ int iobroker_deregister(iobroker_set *iobs, int fd)
 int iobroker_close(iobroker_set *iobs, int fd)
 {
 	int result;
-
+    // 撤销fd的监听
 	result = iobroker_unregister(iobs, fd);
 	(void)close(fd);
 	return result;

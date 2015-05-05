@@ -28,19 +28,21 @@ struct wproc_job {
 
 struct wproc_list;
 
+// worker结构体
 struct wproc_worker {
-	char *name; /**< check-source name of this worker */
-	int sd;     /**< communication socket */
-	pid_t pid;  /**< pid */
-	int max_jobs; /**< Max number of jobs the worker can handle */
+	char *name; /**< check-source name of this worker work的名字*/ 
+	int sd;     /**< communication socket 通信的fd*/
+	pid_t pid;  /**< pid  worker进程的pid*/
+	int max_jobs; /**< Max number of jobs the worker can handle  worker的最大工作数*/
 	int jobs_running; /**< jobs running */
 	int jobs_started; /**< jobs started */
 	int job_index; /**< round-robin slot allocator (this wraps) */
-	iocache *ioc;  /**< iocache for reading from worker */
-	fanout_table *jobs; /**< array of jobs */
-	struct wproc_list *wp_list;
+	iocache *ioc;  /**< iocache for reading from worker  io缓存*/
+	fanout_table *jobs; /**< array of jobs  jobs数组*/
+	struct wproc_list *wp_list; // 全局变量 workers的地址
 };
 
+// 全局变量 workers 统计所有的wproc_worker
 struct wproc_list {
 	unsigned int len;
 	unsigned int idx;
@@ -49,6 +51,7 @@ struct wproc_list {
 
 static struct wproc_list workers = {0, 0, NULL};
 
+//大小为512的哈希表
 static dkhash_table *specialized_workers;
 static struct wproc_list *to_remove = NULL;
 
@@ -62,8 +65,9 @@ typedef struct wproc_object_job {
 	char *host_name;
 	char *service_description;
 } wproc_object_job;
-
+                                           // 设计的worker数
 unsigned int wproc_num_workers_online = 0, wproc_num_workers_desired = 0;
+//已启动的worker数
 unsigned int wproc_num_workers_spawned = 0;
 
 extern struct kvvec * macros_to_kvv(nagios_macros *);
@@ -795,7 +799,7 @@ int workers_alive(void)
 
 	return alive;
 }
-
+// "name=Core Worker 13317;pid=13317", len=32
 /* a service for registering workers */
 static int register_worker(int sd, char *buf, unsigned int len)
 {
@@ -808,8 +812,16 @@ static int register_worker(int sd, char *buf, unsigned int len)
 		logit(NSLOG_RUNTIME_ERROR, TRUE, "wproc: Failed to allocate worker: %s\n", strerror(errno));
 		return 500;
 	}
-
+    // buf 转成键值对
 	info = buf2kvvec(buf, len, '=', ';', 0);
+    /*
+    (gdb) print *info
+    $13 = {kv = 0x715800, kv_alloc = 2, kv_pairs = 2, kvv_sorted = 0}
+    (gdb) print *info.kv
+    $14 = {key = 0x6d6f70 "name", value = 0x6d6f75 "Core Worker 13317", key_len = 4, value_len = 17}
+    (gdb) print *(info.kv+1)
+    $15 = {key = 0x6d6f87 "pid", value = 0x6d6f8b "13317", key_len = 3, value_len = 5}
+    */
 	if (info == NULL) {
 		free(worker);
 		logit(NSLOG_RUNTIME_ERROR, TRUE, "wproc: Failed to parse registration request\n");
@@ -819,6 +831,7 @@ static int register_worker(int sd, char *buf, unsigned int len)
 	worker->sd = sd;
 	worker->ioc = iocache_create(1 * 1024 * 1024);
 
+    // 重新注册 sd
 	iobroker_unregister(nagios_iobs, sd);
 	iobroker_register(nagios_iobs, sd, worker, handle_worker_result);
 
@@ -859,6 +872,7 @@ static int register_worker(int sd, char *buf, unsigned int len)
 		 * and memory allocation, so this guesstimate shouldn't
 		 * be too far off (for local workers, at least).
 		 */
+		 //9950
 		worker->max_jobs = (iobroker_max_usable_fds() / 2) - 50;
 	}
 	worker->jobs = fanout_create(worker->max_jobs);
@@ -869,6 +883,7 @@ static int register_worker(int sd, char *buf, unsigned int len)
 		workers.wps[workers.len - 1] = worker;
 		worker->wp_list = &workers;
 	}
+    // worker在线数加一
 	wproc_num_workers_online++;
 	kvvec_destroy(info, 0);
 	nsock_printf_nul(sd, "OK");
@@ -877,6 +892,7 @@ static int register_worker(int sd, char *buf, unsigned int len)
 	return QH_TAKEOVER;
 }
 
+//register name=Core Worker 13317;pid=13317", len=41
 static int wproc_query_handler(int sd, char *buf, unsigned int len)
 {
 	char *space, *rbuf = NULL;
@@ -894,7 +910,9 @@ static int wproc_query_handler(int sd, char *buf, unsigned int len)
 	if ((space = memchr(buf, ' ', len)) != NULL)
 		*space = 0;
 
+    // name=Core Worker 13317;pid=13317
 	rbuf = space ? space + 1 : buf;
+    //32
 	len -= (unsigned long)rbuf - (unsigned long)buf;
 
 	if (!strcmp(buf, "register"))
@@ -914,6 +932,7 @@ static int wproc_query_handler(int sd, char *buf, unsigned int len)
 	return 400;
 }
 
+//生产核心工作者
 static int spawn_core_worker(void)
 {
 	char *argvec[] = {nagios_binary_path, "--worker", qh_socket_path ? qh_socket_path : DEFAULT_QUERY_SOCKET, NULL};
@@ -927,7 +946,7 @@ static int spawn_core_worker(void)
 	return ret;
 }
 
-
+// desired_workers = 0
 int init_workers(int desired_workers)
 {
 	specialized_workers = dkhash_create(512);
@@ -936,7 +955,7 @@ int init_workers(int desired_workers)
 		return -1;
 	}
 
-	/* Register our query handler before launching workers, so other workers
+	/* Register our query handler before launching 发动 workers, so other workers
 	 * can join us whenever they're ready. */
 	if (!qh_register_handler("wproc", "Worker process management and info", 0, wproc_query_handler))
 		logit(NSLOG_INFO_MESSAGE, TRUE, "wproc: Successfully registered manager as @wproc with query handler\n");
@@ -944,6 +963,7 @@ int init_workers(int desired_workers)
 		logit(NSLOG_RUNTIME_ERROR, TRUE, "wproc: Failed to register manager with query handler\n");
 
 	if (desired_workers <= 0) {
+        // 获取cup个数 4
 		int cpus = online_cpus(); /* Always at least 1 CPU. */
 
 		if (desired_workers < 0) {
@@ -952,6 +972,7 @@ int init_workers(int desired_workers)
 			desired_workers = cpus - desired_workers;
 			/* desired_workers is now > 0. */
 		} else {
+		    // 4*1.5 = 6
 			desired_workers = cpus * 1.5;
 
 			if (desired_workers < 4) {
@@ -967,6 +988,7 @@ int init_workers(int desired_workers)
 	}
 	wproc_num_workers_desired = desired_workers;
 
+    // 活的worker数
 	if (workers_alive() == desired_workers)
 		return 0;
 

@@ -105,14 +105,17 @@ int read_main_config_file(char *main_config_file) {
 
 
 	/* open the config file for reading */
+    // 把文件读到共享内存中
 	if((thefile = mmap_fopen(main_config_file)) == NULL) {
 		logit(NSLOG_CONFIG_ERROR, TRUE, "Error: Cannot open main configuration file '%s' for reading!", main_config_file);
 		return ERROR;
 		}
 
 	/* save the main config file macro */
+    //把配置文件名保存到宏中
 	my_free(mac->x[MACRO_MAINCONFIGFILE]);
 	if((mac->x[MACRO_MAINCONFIGFILE] = (char *)strdup(main_config_file)))
+        /*去掉头尾的不可视字符*/
 		strip(mac->x[MACRO_MAINCONFIGFILE]);
 
 	/* process all lines in the config file */
@@ -124,18 +127,20 @@ int read_main_config_file(char *main_config_file) {
 		my_free(value);
 
 		/* read the next line */
+        // 读取一行
 		if((input = mmap_fgets_multiline(thefile)) == NULL)
 			break;
 
 		current_line = thefile->current_line;
-
+        /*去掉头尾的不可视字符*/
 		strip(input);
 
-		/* skip blank lines and comments */
+		/* skip blank lines and comments 
+        如果是空行和注释行，跳过*/
 		if(input[0] == '\x0' || input[0] == '#')
 			continue;
 
-		/* get the variable name */
+		/* get the variable name 获取变量名*/
 		if((temp_ptr = my_strtok(input, "=")) == NULL) {
 			asprintf(&error_message, "NULL variable");
 			error = TRUE;
@@ -147,7 +152,7 @@ int read_main_config_file(char *main_config_file) {
 			break;
 			}
 
-		/* get the value */
+		/* get the value 获取值*/
 		if((temp_ptr = my_strtok(NULL, "\n")) == NULL) {
 			asprintf(&error_message, "NULL value");
 			error = TRUE;
@@ -161,8 +166,9 @@ int read_main_config_file(char *main_config_file) {
 		strip(variable);
 		strip(value);
 
-		/* process the variable/value */
-
+		/* process the variable/value 
+           处理变量和值，保存到mac或者全局变量中*/
+        
 		if(!strcmp(variable, "resource_file")) {
 
 			/* save the macro */

@@ -145,6 +145,7 @@ static int test_path_access(const char *program, int mode)
 	return ret;
 }
 
+//worker和主进程通过unix域套接字通信
 static int nagios_core_worker(const char *path)
 {
 	int sd, ret;
@@ -154,6 +155,7 @@ static int nagios_core_worker(const char *path)
 
 	set_loadctl_defaults();
 
+    // sock_fd
 	sd = nsock_unix(path, NSOCK_TCP | NSOCK_CONNECT);
 	if (sd < 0) {
 		printf("Failed to connect to query socket '%s': %s: %s\n",
@@ -166,19 +168,20 @@ static int nagios_core_worker(const char *path)
 		printf("Failed to register as worker.\n");
 		return 1;
 	}
-
+    //  读取前三个字节
 	ret = read(sd, response, 3);
 	if (ret != 3) {
 		printf("Failed to read response from wproc manager\n");
 		return 1;
 	}
+    
 	if (memcmp(response, "OK", 3)) {
 		read(sd, response + 3, sizeof(response) - 4);
 		response[sizeof(response) - 2] = 0;
 		printf("Failed to register with wproc manager: %s\n", response);
 		return 1;
 	}
-
+    // 收到core发来的ok,表示已经接管，进入worker工作主流程
 	enter_worker(sd, start_cmd);
 	return 0;
 }
@@ -392,7 +395,7 @@ int main(int argc, char **argv) {
 
 	/* 
 	 * Set the signal handler for the SIGXFSZ signal here because
-	 * we may encounter this signal before the other signal handlers
+	 * we may encounter(遭遇) this signal before the other signal handlers
 	 * are set.
 	 */
 	signal(SIGXFSZ, handle_sigxfsz);
@@ -401,6 +404,7 @@ int main(int argc, char **argv) {
 	 * let's go to town. We'll be noisy if we're verifying config
 	 * or running scheduling tests.
 	 */
+	//不成立
 	if(verify_config || test_scheduling || precache_objects) {
 		reset_variables();
 		/*
@@ -542,6 +546,7 @@ int main(int argc, char **argv) {
 		 * If not, we needn't bother, as we're using execvp()
 		 */
 		if (strchr(argv[0], '/'))
+            ///home/nagios-4.0.8/base/nagios
 			nagios_binary_path = nspath_absolute(argv[0], NULL);
 		else
            // /home/nagios-4.0.8/base/nagios
@@ -573,7 +578,8 @@ int main(int argc, char **argv) {
 			nagios_pid = (int)getpid();
 
 			/* read in the configuration files (main and resource config files) */
-			result = read_main_config_file(config_file);
+            //  /usr/local/nagios/etc/nagios.cfg
+            result = read_main_config_file(config_file);
 			if (result != OK) {
 				logit(NSLOG_CONFIG_ERROR, TRUE, "Error: Failed to process config file '%s'. Aborting\n", config_file);
 				exit(EXIT_FAILURE);
@@ -587,7 +593,8 @@ int main(int argc, char **argv) {
             //程序启动时间
 			asprintf(&mac->x[MACRO_PROCESSSTARTTIME], "%lu", (unsigned long)program_start);
 
-			/* drop privileges */
+			/* drop privileges 
+               降低权限*/
 			if(drop_privileges(nagios_user, nagios_group) == ERROR) {
 
 				logit(NSLOG_PROCESS_INFO | NSLOG_RUNTIME_ERROR | NSLOG_CONFIG_ERROR, TRUE, "Failed to drop privileges.  Aborting.");
@@ -601,7 +608,7 @@ int main(int argc, char **argv) {
 				logit(NSLOG_RUNTIME_ERROR, TRUE, "Error: Spawning workers will be impossible. Aborting.\n");
 				exit(EXIT_FAILURE);
 				}
-            //判断配置文件路径
+            //判断配置文件路径是否有权限
 			if (test_configured_paths() == ERROR) {
 				/* error has already been logged */
 				exit(EXIT_FAILURE);
@@ -626,8 +633,13 @@ int main(int argc, char **argv) {
 			logit(NSLOG_PROCESS_INFO, TRUE, "Nagios %s starting... (PID=%d)\n", PROGRAM_VERSION, (int)getpid());
 
 			/* log the local time - may be different than clock time due to timezone offset */
-			now = time(NULL);
+            // 1430381705
+            now = time(NULL);
+            /*tm_s {tm_sec = 5, tm_min = 15, tm_hour = 16, tm_mday = 30, tm_mon = 3, 
+            tm_year = 115, tm_wday = 4, tm_yday = 119, tm_isdst = 0, tm_gmtoff = 28800,
+            tm_zone = 0x6cdc70 "CST"}*/
 			tm = localtime_r(&now, &tm_s);
+            // Thu Apr 30 16:15:05 CST 2015\000
 			strftime(datestring, sizeof(datestring), "%a %b %d %H:%M:%S %Z %Y", tm);
 			logit(NSLOG_PROCESS_INFO, TRUE, "Local time is %s", datestring);
 
@@ -638,14 +650,17 @@ int main(int argc, char **argv) {
 			open_debug_log();
 
 #ifdef USE_EVENT_BROKER
-			/* initialize modules */
+			/* initialize modules 
+                初始化模块*/
+            // neb nagios event broker
 			neb_init_modules();
             //初始化回调链表
 			neb_init_callback_list();
 #endif
 			timing_point("NEB module API initialized\n");
 
-			/* handle signals (interrupts) before we do any socket I/O */
+			/* handle signals (interrupts) before we do any socket I/O 
+               安装信号处理函数*/
 			setup_sighandler();
 
 			/*
@@ -653,21 +668,26 @@ int main(int argc, char **argv) {
 			 * This must be done before modules are initialized, so
 			 * the modules can use our in-core stuff properly
 			 */
+			//  /usr/local/nagios/var/rw/nagios.qh
 			if (qh_init(qh_socket_path ? qh_socket_path : DEFAULT_QUERY_SOCKET) != OK) {
 				logit(NSLOG_RUNTIME_ERROR, TRUE, "Error: Failed to initialize query handler. Aborting\n");
 				exit(EXIT_FAILURE);
 			}
 			timing_point("Query handler initialized\n");
+            // nerd 是什么???
 			nerd_init();
 			timing_point("NERD initialized\n");
 
-			/* initialize check workers */
+			/* initialize check workers 
+                初始化检查工作者*/
+            //注册workers
 			if(init_workers(num_check_workers) < 0) {
 				logit(NSLOG_RUNTIME_ERROR, TRUE, "Failed to spawn workers. Aborting\n");
 				exit(EXIT_FAILURE);
 			}
-			timing_point("%u workers spawned\n", wproc_num_workers_spawned);
+			timing_point("%u workers spawned\n", wproc_num_workers_spawned); //6
 			i = 0;
+            //循环50次，超过50次还有worker没注册就跳过
 			while (i < 50 && wproc_num_workers_online < wproc_num_workers_spawned) {
 				iobroker_poll(nagios_iobs, 50);
 				i++;
@@ -689,12 +709,14 @@ int main(int argc, char **argv) {
 			timing_point("Modules loaded\n");
 
 			/* send program data to broker */
+            //broker.c
 			broker_program_state(NEBTYPE_PROCESS_PRELAUNCH, NEBFLAG_NONE, NEBATTR_NONE, NULL);
 			timing_point("First callback made\n");
 #endif
 
 			/* read in all object config data */
 			if(result == OK)
+                //  /usr/local/nagios/etc/nagios.cfg
 				result = read_all_object_data(config_file);
 
 			/* there was a problem reading the config files */
@@ -728,10 +750,13 @@ int main(int argc, char **argv) {
 
 			timing_point("Object configuration parsed and understood\n");
 
+            // /usr/local/nagios/var/objects.cache
+            // 把 object信息写到 odjects.cache文件中
 			/* write the objects.cache file */
 			fcache_objects(object_cache_file);
 			timing_point("Objects cached\n");
 
+            // 初始化事件队列
 			init_event_queue();
 			timing_point("Event queue initialized\n");
 
@@ -743,6 +768,8 @@ int main(int argc, char **argv) {
 
 			/* initialize status data unless we're starting */
 			if(sigrestart == FALSE) {
+                // /usr/local/nagios/etc/nagios.cfg
+                // 初始化状态数据 /usr/local/nagios/var/status.dat
 				initialize_status_data(config_file);
 				timing_point("Status data initialized\n");
 				}
@@ -752,8 +779,10 @@ int main(int argc, char **argv) {
 			timing_point("Downtime data initialized\n");
 
 			/* read initial service and host state information  */
+            // 初始化保留的数据 /usr/local/nagios/var/retention.dat
 			initialize_retention_data(config_file);
 			timing_point("Retention data initialized\n");
+            // 读取初始化状态数据
 			read_initial_state_information();
 			timing_point("Initial state information read\n");
 
@@ -762,14 +791,17 @@ int main(int argc, char **argv) {
 			timing_point("Comment data initialized\n");
 
 			/* initialize performance data */
+            //初始化性能数据
 			initialize_performance_data(config_file);
 			timing_point("Performance data initialized\n");
 
 			/* initialize the event timing loop */
+            // 初始化事件时间
 			init_timing_loop();
 			timing_point("Event timing loop initialized\n");
 
 			/* initialize check statistics */
+            // 初始化 check 统计信息
 			init_check_stats();
 			timing_point("check stats initialized\n");
 

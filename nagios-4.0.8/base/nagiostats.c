@@ -1340,6 +1340,7 @@ static int read_status_file(void) {
 
 
 /* strip newline, carriage return, and tab characters from beginning and end of a string */
+/*去掉头尾的不可视字符*/
 void strip(char *buffer) {
 	register int x;
 	register int y;

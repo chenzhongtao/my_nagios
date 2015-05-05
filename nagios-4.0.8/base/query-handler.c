@@ -83,6 +83,7 @@ const char *qh_strerror(int code)
 	return "Unknown error";
 }
 
+//收到worker信息后的handler函数
 static int qh_input(int sd, int events, void *ioc_)
 {
 	iocache *ioc = (iocache *)ioc_;
@@ -101,6 +102,7 @@ static int qh_input(int sd, int events, void *ioc_)
 			return 0;
 		}
 
+        //创建io缓存
 		if(!(ioc = iocache_create(16384))) {
 			logit(NSLOG_RUNTIME_ERROR, TRUE, "qh: Failed to create iocache for inbound request\n");
 			nsock_printf(nsd, "500: Internal server error");
@@ -120,6 +122,7 @@ static int qh_input(int sd, int events, void *ioc_)
 		}
 
 		/* make it non-blocking, but leave kernel buffers unchanged */
+        //设置非阻塞，buffer不便
 		worker_set_sockopts(nsd, 0);
 		qh_running++;
 		return 0;
@@ -132,6 +135,7 @@ static int qh_input(int sd, int events, void *ioc_)
 		struct query_handler *qh;
 		char *handler = NULL, *query = NULL;
 
+        //从缓存中读取数据
 		result = iocache_read(ioc, sd);
 		/* disconnect? */
 		if(result == 0 || (result < 0 && errno == EPIPE)) {
@@ -149,7 +153,8 @@ static int qh_input(int sd, int events, void *ioc_)
 		 * has no "default" handler, a query is required or an error
 		 * will be thrown.
 		 */
-
+		 
+        // @wproc register name=Core Worker 13317;pid=13317
 		/* Use data up to the first nul byte */
 		buf = iocache_use_delim(ioc, "\0", 1, &len);
 		if(!buf)
@@ -163,7 +168,9 @@ static int qh_input(int sd, int events, void *ioc_)
 		/* Locate query (if any) */
 		if((space = strchr(buf, ' '))) {
 			*space = 0;
+            // register name=Core Worker 13317;pid=13317
 			query = space + 1;
+            // 41
 			query_len = len - ((unsigned long)query - (unsigned long)buf);
 		} else {
 			query = "";
@@ -171,6 +178,8 @@ static int qh_input(int sd, int events, void *ioc_)
 		}
 
 		/* locate the handler */
+        // handler = "wproc"    init_workers函数中注册
+        // qh->handler = wproc_query_handler 
 		if(!(qh = qh_find_handler(handler))) {
 			/* not found. that's a 404 */
 			nsock_printf(sd, "404: %s: No such handler", handler);
@@ -231,6 +240,7 @@ int qh_deregister_handler(const char *name)
 	return 0;
 }
 
+// query_handler 链表注册控制器
 int qh_register_handler(const char *name, const char *description, unsigned int options, qh_handler handler)
 {
 	struct query_handler *qh;
@@ -250,6 +260,7 @@ int qh_register_handler(const char *name, const char *description, unsigned int 
 	}
 
 	/* names must be unique */
+    // 名字必须唯一，不能重复注册
 	if(qh_find_handler(name)) {
 		logit(NSLOG_RUNTIME_WARNING, TRUE, "qh: Handler '%s' registered more than once\n", name);
 		return -1;
@@ -264,11 +275,13 @@ int qh_register_handler(const char *name, const char *description, unsigned int 
 	qh->description = description;
 	qh->handler = handler;
 	qh->options = options;
+    // 头插法
 	qh->next_qh = qhandlers;
 	if (qhandlers)
 		qhandlers->prev_qh = qh;
 	qhandlers = qh;
 
+    // 把 qh 插入到哈希表中，name为key1
 	result = dkhash_insert(qh_table, qh->name, NULL, qh);
 	if(result < 0) {
 		logit(NSLOG_RUNTIME_ERROR, TRUE,
@@ -378,10 +391,12 @@ static int qh_core(int sd, char *buf, unsigned int len)
 }
 
 // /usr/local/nagios/var/rw/nagios.qh
+//初始化查询处理
 int qh_init(const char *path)
 {
 	int result, old_umask;
 
+    // qh_listen_sock = -1 ，如果大于等于0,先关闭它
 	if(qh_listen_sock >= 0)
 		iobroker_close(nagios_iobs, qh_listen_sock);
 
@@ -389,7 +404,7 @@ int qh_init(const char *path)
 		logit(NSLOG_RUNTIME_ERROR, TRUE, "qh: query_socket is NULL. What voodoo is this?\n");
 		return ERROR;
 	}
-
+    // 0022  0117 不可执行
 	old_umask = umask(0117);
 	errno = 0;
 	qh_listen_sock = nsock_unix(path, NSOCK_TCP | NSOCK_UNLINK);
@@ -401,6 +416,7 @@ int qh_init(const char *path)
 	}
 
 	/* plugins shouldn't have this socket */
+    // 如果没有设置FD_CLOEXEC，插件会继承这个fd
 	(void)fcntl(qh_listen_sock, F_SETFD, FD_CLOEXEC);
 
 	/* most likely overkill, but it's small, so... */
@@ -412,6 +428,7 @@ int qh_init(const char *path)
 	}
 
 	errno = 0;
+    // iobroker 注册
 	result = iobroker_register(nagios_iobs, qh_listen_sock, NULL, qh_input);
 	if(result < 0) {
 		dkhash_destroy(qh_table);
